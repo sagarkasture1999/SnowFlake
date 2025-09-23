@@ -1,0 +1,152 @@
+🛒 E-Commerce Data Warehouse Project (Snowflake)
+🔹 Step 1: Create Database & Schema
+-- Create database
+CREATE DATABASE ecommerce_db;
+
+-- Switch to this database
+USE DATABASE ecommerce_db;
+
+-- Create schema
+CREATE SCHEMA dw_schema;
+
+-- Switch to schema
+USE SCHEMA dw_schema;
+
+🔹 Step 2: Design Star Schema
+
+We’ll design:
+
+FactOrders (transaction data)
+
+DimCustomer (who ordered)
+
+DimProduct (what was ordered)
+
+DimDate (when order happened)
+
+DimShipment (delivery details – optional but useful)
+
+-- Customers Dimension
+CREATE OR REPLACE TABLE dim_customer (
+    customer_id INT PRIMARY KEY,
+    customer_name STRING,
+    city STRING,
+    state STRING,
+    country STRING
+);
+
+-- Products Dimension
+CREATE OR REPLACE TABLE dim_product (
+    product_id INT PRIMARY KEY,
+    product_name STRING,
+    category STRING,
+    price NUMBER(10,2)
+);
+
+-- Date Dimension
+CREATE OR REPLACE TABLE dim_date (
+    date_id DATE PRIMARY KEY,
+    year INT,
+    month INT,
+    day INT,
+    week INT
+);
+
+-- Shipments Dimension
+CREATE OR REPLACE TABLE dim_shipment (
+    shipment_id INT PRIMARY KEY,
+    shipment_date DATE,
+    delivery_date DATE,
+    status STRING
+);
+
+-- Orders Fact Table
+CREATE OR REPLACE TABLE fact_orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT REFERENCES dim_customer(customer_id),
+    product_id INT REFERENCES dim_product(product_id),
+    date_id DATE REFERENCES dim_date(date_id),
+    shipment_id INT REFERENCES dim_shipment(shipment_id),
+    quantity INT,
+    total_amount NUMBER(12,2)
+);
+
+🔹 Step 3: Insert Small Sample Data
+
+We’ll add just enough rows to test queries.
+
+-- Customers
+INSERT INTO dim_customer VALUES
+(1, 'Amit Sharma', 'Pune', 'MH', 'India'),
+(2, 'Neha Gupta', 'Delhi', 'DL', 'India'),
+(3, 'Rahul Verma', 'Bangalore', 'KA', 'India');
+
+-- Products
+INSERT INTO dim_product VALUES
+(101, 'Laptop', 'Electronics', 60000),
+(102, 'Mobile Phone', 'Electronics', 25000),
+(103, 'Headphones', 'Accessories', 2000);
+
+-- Dates
+INSERT INTO dim_date VALUES
+('2025-01-10', 2025, 1, 10, 2),
+('2025-02-15', 2025, 2, 15, 7),
+('2025-03-01', 2025, 3, 1, 9);
+
+-- Shipments
+INSERT INTO dim_shipment VALUES
+(201, '2025-01-11', '2025-01-13', 'Delivered'),
+(202, '2025-02-16', '2025-02-20', 'Delayed'),
+(203, '2025-03-02', '2025-03-05', 'Delivered');
+
+-- Orders (Fact)
+INSERT INTO fact_orders VALUES
+(1001, 1, 101, '2025-01-10', 201, 1, 60000),
+(1002, 2, 102, '2025-02-15', 202, 2, 50000),
+(1003, 3, 103, '2025-03-01', 203, 3, 6000);
+
+🔹 Step 4: Practice Queries / Views
+1. Daily Sales (Dashboard View)
+CREATE OR REPLACE VIEW vw_daily_sales AS
+SELECT d.date_id,
+       SUM(f.total_amount) AS total_sales
+FROM fact_orders f
+JOIN dim_date d ON f.date_id = d.date_id
+GROUP BY d.date_id
+ORDER BY d.date_id;
+
+2. Delivery Delays
+CREATE OR REPLACE VIEW vw_delivery_delays AS
+SELECT s.shipment_id,
+       s.shipment_date,
+       s.delivery_date,
+       DATEDIFF('day', s.shipment_date, s.delivery_date) AS delivery_days,
+       s.status
+FROM dim_shipment s;
+
+3. RFM Analysis (Recency, Frequency, Monetary)
+CREATE OR REPLACE VIEW vw_rfm_analysis AS
+SELECT c.customer_id,
+       c.customer_name,
+       MAX(f.date_id) AS last_order_date,  -- Recency
+       COUNT(f.order_id) AS order_count,   -- Frequency
+       SUM(f.total_amount) AS total_spent  -- Monetary
+FROM fact_orders f
+JOIN dim_customer c ON f.customer_id = c.customer_id
+GROUP BY c.customer_id, c.customer_name;
+
+🔹 Step 5: Load Data via COPY INTO (Optional, if you use CSVs)
+
+Save your Excel as CSV (e.g., customer.csv, product.csv, orders.csv).
+
+Upload to Snowflake Stage:
+
+CREATE OR REPLACE STAGE my_stage;
+PUT file://C:\Users\you\Desktop\customer.csv @my_stage;
+
+
+Load data:
+
+COPY INTO dim_customer
+FROM @my_stage/customer.csv
+FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY='"' SKIP_HEADER=1);
