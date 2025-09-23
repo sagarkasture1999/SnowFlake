@@ -1,0 +1,145 @@
+4. Movie Analytics (IMDB Dataset)
+Source: Public IMDB dataset (ratings, movies, genres).
+Tasks:
+Load JSON/CSV into Snowflake tables.
+Parse semi-structured data (JSON, VARIANT).
+Queries: top movies by rating, average rating per genre, trend of movies per year.
+Practice Concepts: JSON parsing, analytical functions (ROW_NUMBER, RANK).
+🔹 Advanced Level Projects
+
+
+🎬 Movie Analytics Project (Snowflake – Advanced)
+🔹 Step 1: Create Database & Schema
+-- Create a database
+CREATE DATABASE movie_db;
+
+-- Switch to it
+USE DATABASE movie_db;
+
+-- Create schema
+CREATE SCHEMA imdb_schema;
+
+-- Switch schema
+USE SCHEMA imdb_schema;
+
+🔹 Step 2: Create Tables
+
+We’ll store data in two ways:
+
+Movies Table (Structured CSV style)
+
+Movie_Raw Table (Semi-structured JSON style)
+
+-- Structured Movies Table
+CREATE OR REPLACE TABLE movies (
+    movie_id INT PRIMARY KEY,
+    title STRING,
+    genre STRING,
+    release_year INT,
+    duration INT   -- in minutes
+);
+
+-- Ratings Table
+CREATE OR REPLACE TABLE ratings (
+    rating_id INT PRIMARY KEY,
+    movie_id INT,
+    rating DECIMAL(3,1),
+    votes INT,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id)
+);
+
+-- Semi-Structured Table (JSON)
+CREATE OR REPLACE TABLE movie_raw (
+    raw VARIANT
+);
+
+🔹 Step 3: Insert Small Sample Data
+Structured Data
+-- Movies
+INSERT INTO movies VALUES
+(1, 'Inception', 'Sci-Fi', 2010, 148),
+(2, 'The Dark Knight', 'Action', 2008, 152),
+(3, 'Interstellar', 'Sci-Fi', 2014, 169),
+(4, '3 Idiots', 'Comedy', 2009, 170),
+(5, 'Parasite', 'Drama', 2019, 132);
+
+-- Ratings
+INSERT INTO ratings VALUES
+(101, 1, 8.8, 2200000),
+(102, 2, 9.0, 2600000),
+(103, 3, 8.6, 1800000),
+(104, 4, 8.4, 400000),
+(105, 5, 8.6, 900000);
+
+JSON Data
+INSERT INTO movie_raw
+SELECT PARSE_JSON('{
+  "movie_id": 6,
+  "title": "Dangal",
+  "genre": "Drama",
+  "release_year": 2016,
+  "rating": {"score": 8.3, "votes": 250000}
+}');
+
+🔹 Step 4: Practice Queries
+1. Top Movies by Rating
+SELECT m.title,
+       r.rating,
+       r.votes
+FROM movies m
+JOIN ratings r ON m.movie_id = r.movie_id
+ORDER BY r.rating DESC, r.votes DESC
+LIMIT 5;
+
+2. Average Rating per Genre
+SELECT m.genre,
+       AVG(r.rating) AS avg_rating
+FROM movies m
+JOIN ratings r ON m.movie_id = r.movie_id
+GROUP BY m.genre
+ORDER BY avg_rating DESC;
+
+3. Trend of Movies per Year
+SELECT release_year,
+       COUNT(*) AS movie_count
+FROM movies
+GROUP BY release_year
+ORDER BY release_year;
+
+4. Parse JSON (Semi-Structured Data)
+SELECT
+    raw:"title"::STRING AS title,
+    raw:"genre"::STRING AS genre,
+    raw:"release_year"::INT AS release_year,
+    raw:"rating"."score"::FLOAT AS rating,
+    raw:"rating"."votes"::INT AS votes
+FROM movie_raw;
+
+5. Analytical Functions (Rank Movies)
+SELECT m.title,
+       m.genre,
+       r.rating,
+       RANK() OVER (PARTITION BY m.genre ORDER BY r.rating DESC) AS rank_in_genre
+FROM movies m
+JOIN ratings r ON m.movie_id = r.movie_id
+ORDER BY m.genre, rank_in_genre;
+
+🔹 Step 5: Load CSV / JSON with COPY INTO (Optional)
+
+If you have IMDB CSV/JSON files:
+
+-- Create Stage
+CREATE OR REPLACE STAGE imdb_stage;
+
+-- Upload file (local to stage)
+PUT file://C:\Users\you\Desktop\movies.csv @imdb_stage;
+
+-- Load CSV into structured table
+COPY INTO movies
+FROM @imdb_stage/movies.csv
+FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER=1);
+
+-- Load JSON into semi-structured table
+COPY INTO movie_raw
+FROM @imdb_stage/movies.json
+FILE_FORMAT = (TYPE = 'JSON');
