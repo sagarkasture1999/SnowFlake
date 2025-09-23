@@ -1,0 +1,123 @@
+2. Employee Database
+Source: Simple Excel file with employees, departments, salaries.
+Tasks:
+Create tables with constraints (PK, FK).
+Write queries: list employees per department, highest-paid employee, salary trends.
+Practice Concepts: DDL (create schema/tables), joins, subqueries.
+🔹 Intermediate Level Projects
+
+
+👨‍💼 Employee Database Project (Snowflake Intermediate)
+🔹 Step 1: Create Database & Schema
+
+First, log in to Snowflake → open Worksheet → run:
+
+-- Create database
+CREATE DATABASE employee_db;
+
+-- Switch to this database
+USE DATABASE employee_db;
+
+-- Create schema
+CREATE SCHEMA hr_schema;
+
+-- Switch to schema
+USE SCHEMA hr_schema;
+
+🔹 Step 2: Create Tables with Constraints
+
+We’ll create Departments, Employees, Salaries with PK, FK.
+
+-- Departments Table
+CREATE OR REPLACE TABLE departments (
+    dept_id INT PRIMARY KEY,
+    dept_name STRING NOT NULL
+);
+
+-- Employees Table
+CREATE OR REPLACE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    emp_name STRING NOT NULL,
+    hire_date DATE,
+    dept_id INT,
+    FOREIGN KEY (dept_id) REFERENCES departments(dept_id)
+);
+
+-- Salaries Table
+CREATE OR REPLACE TABLE salaries (
+    salary_id INT PRIMARY KEY,
+    emp_id INT,
+    salary NUMBER(10,2),
+    effective_date DATE,
+    FOREIGN KEY (emp_id) REFERENCES employees(emp_id)
+);
+
+🔹 Step 3: Insert Sample Data
+
+We’ll add a small dataset to test queries.
+
+-- Departments
+INSERT INTO departments VALUES
+(10, 'HR'),
+(20, 'Finance'),
+(30, 'IT'),
+(40, 'Sales');
+
+-- Employees
+INSERT INTO employees VALUES
+(101, 'Amit Sharma', '2020-01-15', 10),
+(102, 'Neha Gupta', '2019-03-10', 20),
+(103, 'Rahul Verma', '2021-06-20', 30),
+(104, 'Priya Singh', '2022-02-01', 40),
+(105, 'Vikas Patil', '2023-05-12', 30);
+
+-- Salaries
+INSERT INTO salaries VALUES
+(1, 101, 45000, '2024-01-01'),
+(2, 102, 60000, '2024-01-01'),
+(3, 103, 75000, '2024-01-01'),
+(4, 104, 50000, '2024-01-01'),
+(5, 105, 80000, '2024-01-01'),
+-- Salary changes (to show trend)
+(6, 101, 50000, '2025-01-01'),
+(7, 103, 85000, '2025-01-01'),
+(8, 105, 90000, '2025-01-01');
+
+🔹 Step 4: Practice Queries
+1. List Employees per Department
+SELECT d.dept_name,
+       e.emp_name
+FROM employees e
+JOIN departments d ON e.dept_id = d.dept_id
+ORDER BY d.dept_name, e.emp_name;
+
+2. Highest-Paid Employee
+SELECT e.emp_name,
+       d.dept_name,
+       s.salary
+FROM employees e
+JOIN salaries s ON e.emp_id = s.emp_id
+JOIN departments d ON e.dept_id = d.dept_id
+WHERE s.salary = (SELECT MAX(salary) FROM salaries);
+
+3. Salary Trends (Per Employee Over Time)
+SELECT e.emp_name,
+       s.salary,
+       s.effective_date
+FROM employees e
+JOIN salaries s ON e.emp_id = s.emp_id
+ORDER BY e.emp_name, s.effective_date;
+
+4. Average Salary per Department
+SELECT d.dept_name,
+       AVG(s.salary) AS avg_salary
+FROM employees e
+JOIN salaries s ON e.emp_id = s.emp_id
+JOIN departments d ON e.dept_id = d.dept_id
+GROUP BY d.dept_name
+ORDER BY avg_salary DESC;
+
+5. Employees Hired After 2021
+SELECT emp_name, hire_date
+FROM employees
+WHERE hire_date > '2021-12-31';
