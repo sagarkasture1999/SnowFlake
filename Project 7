@@ -1,0 +1,101 @@
+7. Snowflake + BI Integration
+Source: Any dataset (sales, HR, finance).
+Tasks:
+Connect Snowflake with Power BI / Tableau.
+Build dashboards directly on Snowflake.
+Practice Concepts: BI integration, query performance tuning
+
+
+
+📊 Snowflake + BI Integration Project
+🔹 Step 1: Create Database & Schema
+
+Open your Snowflake worksheet and run:
+
+-- Create database
+CREATE DATABASE bi_integration_db;
+
+-- Switch to it
+USE DATABASE bi_integration_db;
+
+-- Create schema
+CREATE SCHEMA reporting_schema;
+
+-- Switch schema
+USE SCHEMA reporting_schema;
+
+🔹 Step 2: Create Tables with Small Data
+
+We’ll use a Sales dataset (common for BI dashboards).
+
+-- Customers Dimension
+CREATE OR REPLACE TABLE dim_customer (
+    customer_id INT PRIMARY KEY,
+    customer_name STRING,
+    region STRING
+);
+
+-- Products Dimension
+CREATE OR REPLACE TABLE dim_product (
+    product_id INT PRIMARY KEY,
+    product_name STRING,
+    category STRING
+);
+
+-- Sales Fact Table
+CREATE OR REPLACE TABLE fact_sales (
+    sale_id INT PRIMARY KEY,
+    customer_id INT REFERENCES dim_customer(customer_id),
+    product_id INT REFERENCES dim_product(product_id),
+    sale_date DATE,
+    quantity INT,
+    sales_amount NUMBER(10,2)
+);
+
+🔹 Step 3: Insert Small Sample Data
+-- Customers
+INSERT INTO dim_customer VALUES
+(1, 'Amit Sharma', 'North'),
+(2, 'Neha Gupta', 'South'),
+(3, 'Rahul Verma', 'West');
+
+-- Products
+INSERT INTO dim_product VALUES
+(101, 'Laptop', 'Electronics'),
+(102, 'Mobile Phone', 'Electronics'),
+(103, 'Office Chair', 'Furniture');
+
+-- Sales
+INSERT INTO fact_sales VALUES
+(1001, 1, 101, '2025-01-10', 1, 60000),
+(1002, 2, 102, '2025-01-15', 2, 50000),
+(1003, 3, 103, '2025-02-05', 1, 8000),
+(1004, 1, 102, '2025-02-20', 1, 25000),
+(1005, 2, 101, '2025-03-01', 1, 61000);
+
+🔹 Step 4: Example Queries (for BI Dashboard)
+1. Sales by Region
+SELECT c.region,
+       SUM(f.sales_amount) AS total_sales
+FROM fact_sales f
+JOIN dim_customer c ON f.customer_id = c.customer_id
+GROUP BY c.region;
+
+2. Sales by Category
+SELECT p.category,
+       SUM(f.sales_amount) AS total_sales
+FROM fact_sales f
+JOIN dim_product p ON f.product_id = p.product_id
+GROUP BY p.category;
+
+3. Monthly Sales Trend
+SELECT DATE_TRUNC('month', f.sale_date) AS month,
+       SUM(f.sales_amount) AS total_sales
+FROM fact_sales f
+GROUP BY month
+ORDER BY month;
+
+
+
+
+
