@@ -1,0 +1,128 @@
+5. IoT Data Processing
+Source: Simulated sensor data (temperature, humidity).
+Tasks:
+Stream data from AWS S3 or Kafka → Snowflake.
+Partition data by date/device.
+Build dashboards (e.g., anomaly detection for sensor failures).
+Practice Concepts: Snowpipe (real-time ingestion), clustering, micro-batch processing.
+
+
+🌡️ IoT Data Processing Project (Snowflake – Advanced)
+🔹 Step 1: Create Database & Schema
+-- Create database
+CREATE DATABASE iot_db;
+
+-- Switch to it
+USE DATABASE iot_db;
+
+-- Create schema
+CREATE SCHEMA sensor_schema;
+
+-- Switch schema
+USE SCHEMA sensor_schema;
+
+🔹 Step 2: Create Tables
+
+We’ll create a raw sensor table and a partitioned clustered table for analytics.
+
+-- Raw Sensor Data Table
+CREATE OR REPLACE TABLE raw_sensor_data (
+    device_id STRING,
+    reading_time TIMESTAMP,
+    temperature FLOAT,
+    humidity FLOAT
+);
+
+-- Partitioned/Clustered Table for analytics
+CREATE OR REPLACE TABLE sensor_data_clustered (
+    device_id STRING,
+    reading_date DATE,
+    reading_time TIMESTAMP,
+    temperature FLOAT,
+    humidity FLOAT
+)
+CLUSTER BY (reading_date, device_id);
+
+
+👉 Here, CLUSTER BY helps optimize queries that filter by date/device.
+
+🔹 Step 3: Insert Small Sample Data
+
+We’ll simulate IoT sensor data.
+
+INSERT INTO raw_sensor_data VALUES
+('Device_A', '2025-01-10 10:00:00', 28.5, 60.2),
+('Device_A', '2025-01-10 10:05:00', 29.1, 61.0),
+('Device_A', '2025-01-10 10:10:00', 90.0, 60.5), -- anomaly
+('Device_B', '2025-01-10 10:00:00', 25.3, 55.1),
+('Device_B', '2025-01-10 10:05:00', 26.0, 54.9),
+('Device_B', '2025-01-10 10:10:00', 26.4, 56.0);
+
+
+Now populate the clustered table:
+
+INSERT INTO sensor_data_clustered
+SELECT device_id,
+       CAST(reading_time AS DATE) AS reading_date,
+       reading_time,
+       temperature,
+       humidity
+FROM raw_sensor_data;
+
+🔹 Step 4: Practice Queries
+1. Daily Average Readings
+SELECT reading_date,
+       device_id,
+       AVG(temperature) AS avg_temp,
+       AVG(humidity) AS avg_humidity
+FROM sensor_data_clustered
+GROUP BY reading_date, device_id
+ORDER BY reading_date, device_id;
+
+2. Detect Anomalies (Temperature > 60°C or < 0°C)
+SELECT device_id,
+       reading_time,
+       temperature,
+       humidity
+FROM sensor_data_clustered
+WHERE temperature > 60 OR temperature < 0;
+
+3. Trend of Temperature per Device
+SELECT device_id,
+       DATE_TRUNC('hour', reading_time) AS hour_slot,
+       AVG(temperature) AS avg_temp
+FROM sensor_data_clustered
+GROUP BY device_id, hour_slot
+ORDER BY device_id, hour_slot;
+
+4. Rank Sensors by Temperature (Analytical Function)
+SELECT device_id,
+       reading_time,
+       temperature,
+       RANK() OVER (PARTITION BY device_id ORDER BY temperature DESC) AS temp_rank
+FROM sensor_data_clustered
+ORDER BY device_id, temp_rank;
+
+🔹 Step 5: Streaming Data (Snowpipe Concept)
+
+👉 In real IoT projects, data flows from AWS S3 / Kafka → Snowflake using Snowpipe.
+
+Example Setup:
+
+Stage for S3 data
+
+CREATE OR REPLACE STAGE iot_stage
+URL='s3://my-iot-sensor-data/'
+STORAGE_INTEGRATION = my_integration;
+
+
+Pipe for Auto-Ingest
+
+CREATE OR REPLACE PIPE iot_pipe
+AS
+COPY INTO raw_sensor_data
+FROM @iot_stage
+FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER=1);
+
+
+📌 Once configured with AWS event notifications, any new file in S3 auto-loads into Snowflake.
