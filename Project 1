@@ -1,0 +1,133 @@
+🔹 Beginner Level Projects
+1. Retail Sales Analysis
+Source: CSV of sales data (orders, customers, products).
+Tasks:
+Create databases, schemas, and tables in Snowflake.
+Load CSV into Snowflake using SnowSQL or Snowflake Web UI.
+Write queries: top 5 products by sales, monthly revenue trends, most valuable customers.
+Practice Concepts: File ingestion, SELECT queries, GROUP BY, ORDER BY.
+
+
+
+🔹 Step 1: Create Database and Schema
+
+-- Create a database
+CREATE DATABASE retail_db;
+
+-- Switch to the database
+USE DATABASE retail_db;
+
+-- Create a schema
+CREATE SCHEMA sales_schema;
+
+-- Switch to schema
+USE SCHEMA sales_schema;
+
+🔹 Step 2: Create Tables
+
+-- Customers Table
+CREATE OR REPLACE TABLE customers (
+    customer_id INT PRIMARY KEY,
+    customer_name STRING,
+    city STRING,
+    state STRING
+);
+
+-- Products Table
+CREATE OR REPLACE TABLE products (
+    product_id INT PRIMARY KEY,
+    product_name STRING,
+    category STRING,
+    price NUMBER(10,2)
+);
+
+-- Orders Table
+CREATE OR REPLACE TABLE orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    product_id INT,
+    order_date DATE,
+    quantity INT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
+
+🔹 Step 3: Insert Sample Data
+
+-- Customers
+INSERT INTO customers VALUES
+(1, 'Amit Sharma', 'Pune', 'MH'),
+(2, 'Neha Gupta', 'Delhi', 'DL'),
+(3, 'Rahul Verma', 'Bangalore', 'KA'),
+(4, 'Priya Singh', 'Mumbai', 'MH');
+
+-- Products
+INSERT INTO products VALUES
+(101, 'Laptop', 'Electronics', 60000),
+(102, 'Mobile Phone', 'Electronics', 25000),
+(103, 'Headphones', 'Accessories', 2000),
+(104, 'Office Chair', 'Furniture', 8000);
+
+-- Orders
+INSERT INTO orders VALUES
+(1001, 1, 101, '2025-01-10', 1),
+(1002, 2, 102, '2025-02-15', 2),
+(1003, 3, 103, '2025-02-20', 3),
+(1004, 1, 104, '2025-03-05', 1),
+(1005, 4, 102, '2025-03-15', 1),
+(1006, 2, 101, '2025-04-01', 1),
+(1007, 3, 104, '2025-04-10', 2);
+
+
+Step 4: Practice Queries
+1. Top 5 Products by Sales
+
+SELECT p.product_name,
+       SUM(o.quantity * p.price) AS total_sales
+FROM orders o
+JOIN products p ON o.product_id = p.product_id
+GROUP BY p.product_name
+ORDER BY total_sales DESC
+LIMIT 5;
+
+2. Monthly Revenue Trends
+SELECT TO_CHAR(order_date, 'YYYY-MM') AS month,
+       SUM(o.quantity * p.price) AS revenue
+FROM orders o
+JOIN products p ON o.product_id = p.product_id
+GROUP BY month
+ORDER BY month;
+
+
+3. Most Valuable Customers
+SELECT c.customer_name,
+       SUM(o.quantity * p.price) AS total_spent
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+JOIN products p ON o.product_id = p.product_id
+GROUP BY c.customer_name
+ORDER BY total_spent DESC
+LIMIT 3;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
