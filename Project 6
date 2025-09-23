@@ -1,0 +1,144 @@
+6. Financial Data Mart
+Source: Stock price datasets (Yahoo Finance / Kaggle).
+Tasks:
+Load daily stock prices.
+Create time-series queries (moving averages, volatility).
+Build reports: top 5 gainers/losers, sector performance.
+Practice Concepts: Window functions, time-series analysis, optimization.
+
+
+
+
+
+
+📊 Financial Data Mart Project (Snowflake – Advanced)
+🔹 Step 1: Create Database & Schema
+-- Create database
+CREATE DATABASE finance_db;
+
+-- Switch to it
+USE DATABASE finance_db;
+
+-- Create schema
+CREATE SCHEMA mart_schema;
+
+-- Switch schema
+USE SCHEMA mart_schema;
+
+🔹 Step 2: Create Tables
+
+We’ll keep it simple:
+
+dim_company → company metadata (name, sector)
+
+fact_stock_prices → daily OHLC (open-high-low-close) with volume
+
+-- Company Dimension
+CREATE OR REPLACE TABLE dim_company (
+    company_id INT PRIMARY KEY,
+    company_name STRING,
+    ticker STRING,
+    sector STRING
+);
+
+-- Stock Prices Fact Table
+CREATE OR REPLACE TABLE fact_stock_prices (
+    price_id INT AUTOINCREMENT PRIMARY KEY,
+    company_id INT REFERENCES dim_company(company_id),
+    trade_date DATE,
+    open_price NUMBER(10,2),
+    high_price NUMBER(10,2),
+    low_price NUMBER(10,2),
+    close_price NUMBER(10,2),
+    volume BIGINT
+);
+
+🔹 Step 3: Insert Small Sample Data
+
+Let’s insert 3 companies with a few days of stock prices.
+
+-- Companies
+INSERT INTO dim_company VALUES
+(1, 'Reliance Industries', 'RELIANCE', 'Energy'),
+(2, 'Infosys', 'INFY', 'IT'),
+(3, 'HDFC Bank', 'HDFCBANK', 'Banking');
+
+-- Stock Prices
+INSERT INTO fact_stock_prices (company_id, trade_date, open_price, high_price, low_price, close_price, volume) VALUES
+(1, '2025-01-10', 2500, 2550, 2480, 2540, 1000000),
+(1, '2025-01-11', 2540, 2560, 2520, 2530, 1100000),
+(1, '2025-01-12', 2530, 2580, 2510, 2570, 1200000),
+
+(2, '2025-01-10', 1500, 1520, 1480, 1510, 800000),
+(2, '2025-01-11', 1510, 1530, 1495, 1500, 850000),
+(2, '2025-01-12', 1500, 1525, 1490, 1520, 900000),
+
+(3, '2025-01-10', 1000, 1020, 990, 1010, 1200000),
+(3, '2025-01-11', 1010, 1030, 995, 1025, 1300000),
+(3, '2025-01-12', 1025, 1040, 1010, 1030, 1400000);
+
+🔹 Step 4: Practice Queries
+1. Top 5 Gainers (Daily % Change)
+SELECT c.company_name,
+       f.trade_date,
+       ROUND(((f.close_price - f.open_price) / f.open_price) * 100, 2) AS pct_change
+FROM fact_stock_prices f
+JOIN dim_company c ON f.company_id = c.company_id
+ORDER BY f.trade_date, pct_change DESC
+LIMIT 5;
+
+2. Top 5 Losers
+SELECT c.company_name,
+       f.trade_date,
+       ROUND(((f.close_price - f.open_price) / f.open_price) * 100, 2) AS pct_change
+FROM fact_stock_prices f
+JOIN dim_company c ON f.company_id = c.company_id
+ORDER BY f.trade_date, pct_change ASC
+LIMIT 5;
+
+3. Moving Average (5-day Window Example)
+SELECT c.company_name,
+       f.trade_date,
+       f.close_price,
+       AVG(f.close_price) OVER (
+           PARTITION BY f.company_id
+           ORDER BY f.trade_date
+           ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+       ) AS moving_avg_5d
+FROM fact_stock_prices f
+JOIN dim_company c ON f.company_id = c.company_id
+ORDER BY c.company_name, f.trade_date;
+
+4. Volatility (Std Dev of Returns)
+SELECT c.company_name,
+       STDDEV(((f.close_price - f.open_price) / f.open_price) * 100) AS volatility
+FROM fact_stock_prices f
+JOIN dim_company c ON f.company_id = c.company_id
+GROUP BY c.company_name
+ORDER BY volatility DESC;
+
+5. Sector Performance (Avg Daily Returns by Sector)
+SELECT c.sector,
+       f.trade_date,
+       ROUND(AVG(((f.close_price - f.open_price) / f.open_price) * 100), 2) AS avg_sector_return
+FROM fact_stock_prices f
+JOIN dim_company c ON f.company_id = c.company_id
+GROUP BY c.sector, f.trade_date
+ORDER BY f.trade_date, avg_sector_return DESC;
+
+🔹 Step 5: (Optional) Load Data via CSV
+
+If you download stock data from Yahoo Finance / Kaggle:
+
+Save as stock_prices.csv (with columns: ticker, date, open, high, low, close, volume).
+
+Create a stage:
+
+CREATE OR REPLACE STAGE finance_stage;
+
+
+Load with COPY INTO:
+
+COPY INTO fact_stock_prices
+FROM @finance_stage/stock_prices.csv
+FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER=1);
