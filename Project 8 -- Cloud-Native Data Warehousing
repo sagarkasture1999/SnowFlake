@@ -1,0 +1,122 @@
+1. Cloud-Native Data Warehousing
+Elastic compute & storage separation
+Auto-suspend & auto-resume warehouses
+Scalability for both batch & real-time loads
+
+
+☁️ Cloud-Native Data Warehousing in Snowflake
+🔹 Step 1: Create Database & Schema
+
+First, log in to your Snowflake trial → Worksheet → run:
+
+-- Create database
+CREATE DATABASE cloud_dw_db;
+
+-- Switch to it
+USE DATABASE cloud_dw_db;
+
+-- Create schema
+CREATE SCHEMA sales_schema;
+
+-- Switch to schema
+USE SCHEMA sales_schema;
+
+🔹 Step 2: Create a Virtual Warehouse
+
+A warehouse = compute engine in Snowflake (separate from storage).
+
+-- Create a warehouse with auto-suspend & auto-resume
+CREATE WAREHOUSE sales_wh
+  WITH WAREHOUSE_SIZE = 'XSMALL'
+  AUTO_SUSPEND = 60   -- suspend after 60 seconds idle
+  AUTO_RESUME = TRUE  -- auto-resume when a query runs
+  INITIALLY_SUSPENDED = TRUE;
+
+
+👉 This shows elastic compute vs storage separation because data is stored independently, and warehouses can be scaled up/down without affecting storage.
+
+🔹 Step 3: Create Tables with Small Data
+
+We’ll simulate sales data.
+
+-- Customers Table
+CREATE OR REPLACE TABLE customers (
+    customer_id INT,
+    customer_name STRING,
+    city STRING,
+    state STRING
+);
+
+-- Orders Table
+CREATE OR REPLACE TABLE orders (
+    order_id INT,
+    customer_id INT,
+    order_date DATE,
+    amount NUMBER(10,2)
+);
+
+
+Insert sample rows:
+
+-- Customers
+INSERT INTO customers VALUES
+(1, 'Amit Sharma', 'Pune', 'MH'),
+(2, 'Neha Gupta', 'Delhi', 'DL'),
+(3, 'Rahul Verma', 'Bangalore', 'KA');
+
+-- Orders
+INSERT INTO orders VALUES
+(1001, 1, '2025-01-10', 5000),
+(1002, 2, '2025-01-15', 12000),
+(1003, 1, '2025-02-01', 8000),
+(1004, 3, '2025-02-10', 15000);
+
+🔹 Step 4: Run Queries (Warehouse Auto Resume)
+
+Suspend your warehouse:
+
+ALTER WAREHOUSE sales_wh SUSPEND;
+
+
+Run a query → warehouse will auto-resume:
+
+SELECT c.customer_name, SUM(o.amount) AS total_spent
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+GROUP BY c.customer_name;
+
+
+👉 This demonstrates auto-resume. After 60 seconds of inactivity, the warehouse will auto-suspend, saving credits.
+
+🔹 Step 5: Scalability (Batch vs Real-Time)
+
+Batch Processing (Large Query Example):
+Simulate a bigger table by creating copies:
+
+CREATE OR REPLACE TABLE big_orders AS
+SELECT * FROM orders, TABLE(GENERATOR(ROWCOUNT => 100000));
+
+
+Run:
+
+SELECT COUNT(*) FROM big_orders;
+
+
+If query is slow, scale up:
+
+ALTER WAREHOUSE sales_wh SET WAREHOUSE_SIZE = 'LARGE';
+
+
+👉 Shows elastic scaling → more compute for heavy batch loads.
+
+🔹 Step 6: Simulate Real-Time Loads
+
+Snowflake doesn’t stream directly, but you can mimic mini real-time inserts:
+
+INSERT INTO orders VALUES
+(1005, 2, CURRENT_DATE, 20000);
+
+
+Query again:
+
+SELECT * FROM orders ORDER BY order_date DESC;
